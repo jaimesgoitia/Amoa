@@ -308,8 +308,7 @@ body{
   letter-spacing:2.5px;text-transform:uppercase;margin-bottom:10px;
 }
 .bal-num{
-  font-family:'Playfair Display',serif;
-  font-size:64px;font-weight:400;letter-spacing:-.5px;line-height:1.02;
+  font-size:64px;font-weight:300;letter-spacing:4px;line-height:1.02;
   margin-bottom:24px;
   transition:color .4s var(--smooth);
 }
@@ -391,9 +390,11 @@ body{
 .chip-left{display:flex;align-items:center;gap:10px}
 .chip-bar{width:3px;height:32px;border-radius:2px;flex-shrink:0}
 .chip-name{font-size:14px;font-weight:500}
-.chip-right{display:flex;align-items:baseline;gap:10px}
-.chip-pct{font-size:13px;font-weight:400;opacity:.55;margin-top:2px}
+.chip-right{display:flex;align-items:center;gap:6px}
+.chip-pct{font-size:13px;font-weight:400;opacity:.55}
 .chip-amt{font-size:22px;font-weight:300;letter-spacing:-.8px}
+.chip-empty{padding:10px 14px}
+.chip-empty .chip-bar{height:20px}
 
 /* ─── CONTENT ────────────────────────────────────── */
 .content{padding:8px 20px calc(100px + var(--sb))}
@@ -427,6 +428,10 @@ body{
   background:var(--s2) !important;
   display:flex;align-items:center;justify-content:center;
   font-size:22px;margin-right:14px;
+}
+.row-dot{
+  width:10px;height:10px;border-radius:50%;
+  flex-shrink:0;margin-right:14px;
 }
 .row-info{flex:1;min-width:0}
 .row-name{font-size:15px;font-weight:400;letter-spacing:-.2px;
@@ -675,7 +680,8 @@ body{
         <span class="ms" style="font-size:22px">arrow_upward</span>
       </button>
     </div>
-    <button class="ob-cta" id="obCta" onclick="obFinish()">Comenzar</button>
+    <button class="ob-cta" id="obCtaFresh" onclick="obFinish(false)" style="display:none">Desde cero</button>
+    <button class="ob-cta" id="obCtaImport" onclick="obImport()" style="display:none;background:var(--s2);color:var(--t1);border:1.5px solid var(--t3)">Importar datos</button>
   </div>
 </div>
 
@@ -739,10 +745,10 @@ body{
         <div class="sum-col" id="incomeCol" onclick="openIncomePanel()">
           <div class="sum-lbl">Ingresos</div>
           <div class="sum-val" id="incomeVal">$0</div>
-          <div class="sum-hint">Toca para ver</div>
+
         </div>
         <div class="summary-div"></div>
-        <div class="sum-col">
+        <div class="sum-col" id="expenseCol" onclick="openExpensePanel()" style="cursor:pointer">
           <div class="sum-lbl">Gastos</div>
           <div class="sum-val" id="expenseVal">$0</div>
         </div>
@@ -792,19 +798,6 @@ body{
         <button class="add-row" onclick="openAddFixed()">
           <span class="ms">add_circle</span>
           Agregar gasto fijo
-        </button>
-      </div>
-
-      <!-- Variable expenses -->
-      <div class="sec">
-        <div class="sec-hd">
-          <span class="sec-lbl">Gastos</span>
-          <span class="sec-amt" id="varTotal">$0</span>
-        </div>
-        <div id="varList"></div>
-        <button class="add-row" onclick="openAddVar()">
-          <span class="ms">add_circle</span>
-          Agregar gasto
         </button>
       </div>
 
@@ -865,10 +858,14 @@ body{
     <div class="sheet-hd" id="mFixedTtl">Nuevo gasto fijo</div>
     <div class="sheet-body">
       <div><div class="f-lbl">Nombre</div>
-        <input class="f-in" id="fName" type="text" placeholder="🏠 Arriendo, ⚡ Luz…">
+        <input class="f-in" id="fName" type="text" placeholder="Arriendo, Luz, Internet…">
       </div>
       <div><div class="f-lbl">Monto</div>
         <input class="f-in" id="fAmt" type="text" inputmode="numeric" placeholder="$0">
+      </div>
+      <div>
+        <div class="f-lbl">Color</div>
+        <div id="fColorDots" style="display:flex;flex-direction:column;gap:0;padding:4px 0"></div>
       </div>
     </div>
     <div class="sheet-foot">
@@ -945,65 +942,29 @@ const PROFILES = [
 const SAV_PROF = {id:'ahorros', name:'Ahorros', color:'#c8902a', rgb:'200,144,42'};
 
 const DEFAULT_FIXED = [
-  {name:'🏠 Arriendo',        amount:0},
-  {name:'⚡ Electricidad',    amount:0},
-  {name:'💧 Agua',            amount:0},
-  {name:'📡 Internet',        amount:0},
-  {name:'🛒 Mercado',         amount:0},
-  {name:'🏢 Gasto Común',     amount:0},
-  {name:'📱 Plan Móvil Euri', amount:0},
-  {name:'📞 Plan Móvil Fran', amount:0},
-  {name:'🥬 Feria 1',         amount:0},
-  {name:'🥕 Feria 2',         amount:0},
-  {name:'📺 YouTube',         amount:0},
-  {name:'☁️ Google One',      amount:0},
-  {name:'📦 Amazon Prime',    amount:0},
-  {name:'🫧 Botellones',      amount:0},
-  {name:'🥚 Huevos',          amount:0},
-  {name:'🍎 Apple TV',        amount:0}
+  {name:'🏠 Arriendo',        amount:0, color:'#c8902a'},
+  {name:'⚡ Electricidad',    amount:0, color:'#7a9abf'},
+  {name:'💧 Agua',            amount:0, color:'#6a9878'},
+  {name:'📡 Internet',        amount:0, color:'#039be5'},
+  {name:'🛒 Mercado',         amount:0, color:'#7cb342'},
+  {name:'🏢 Gasto Común',     amount:0, color:'#4A4644'},
+  {name:'📱 Plan Móvil Euri', amount:0, color:'#ad1457'},
+  {name:'📞 Plan Móvil Fran', amount:0, color:'#9E9488'},
+  {name:'🥬 Feria 1',         amount:0, color:'#e8b860'},
+  {name:'🥕 Feria 2',         amount:0, color:'#ef6c00'},
+  {name:'📺 YouTube',         amount:0, color:'#e53935'},
+  {name:'☁️ Google One',      amount:0, color:'#4285f4'},
+  {name:'📦 Amazon Prime',    amount:0, color:'#f09300'},
+  {name:'🫧 Botellones',      amount:0, color:'#039be5'},
+  {name:'🥚 Huevos',          amount:0, color:'#e8b860'},
+  {name:'🍎 Apple TV',        amount:0, color:'#1E1E1E'},
 ];
 
 const ENERO_DATA = {
-  incomes: [
-    {name:'Fran',  amount:500000},
-    {name:'Euri',  amount:500000},
-  ],
+  incomes: [],
   savings: [],
-  fixed: [
-    {name:'🏠 Arriendo',        amount:300000},
-    {name:'⚡ Electricidad',    amount:21811},
-    {name:'💧 Agua',            amount:12920},
-    {name:'📡 Internet',        amount:23996},
-    {name:'🛒 Mercado',         amount:300000},
-    {name:'🏢 Gasto Común',     amount:34156},
-    {name:'📱 Plan Móvil Euri', amount:25119},
-    {name:'📞 Plan Móvil Fran', amount:11676},
-    {name:'🥬 Feria 1',         amount:35000},
-    {name:'🥕 Feria 2',         amount:20000},
-    {name:'📺 YouTube',         amount:11000},
-    {name:'☁️ Google One',      amount:2690},
-    {name:'📦 Amazon Prime',    amount:6490},
-    {name:'🫧 Botellones',      amount:0},
-    {name:'🥚 Huevos',          amount:0},
-    {name:'🍎 Apple TV',        amount:0},
-  ],
-  vars: [
-    {name:'Pan de Jamón 31',  amount:17000,  profile:'casa'},
-    {name:'Otro',             amount:19500,  profile:'casa'},
-    {name:'Otro',             amount:3200,   profile:'casa'},
-    {name:'Sopa 1 Enero',     amount:23658,  profile:'casa'},
-    {name:'Bolsas 3 Enero',   amount:4670,   profile:'casa'},
-    {name:'Art. Limpieza',    amount:11270,  profile:'casa'},
-    {name:'Pastilla Mamá',    amount:13189,  profile:'casa'},
-    {name:'Atún',             amount:10080,  profile:'casa'},
-    {name:'Queso 11/01',      amount:1840,   profile:'casa'},
-    {name:'Otro',             amount:4237,   profile:'casa'},
-    {name:'Otro',             amount:7199,   profile:'casa'},
-    {name:'Otro',             amount:2000,   profile:'casa'},
-    {name:'Q Llanero',        amount:4630,   profile:'casa'},
-    {name:'Harina Yogurt',    amount:2500,   profile:'casa'},
-    {name:'Agua Potable',     amount:5000,   profile:'casa'},
-  ]
+  fixed: JSON.parse(JSON.stringify(DEFAULT_FIXED)),
+  vars: []
 };
 
 /* ─── STATE ──────────────────────────────────────── */
@@ -1012,6 +973,13 @@ let CY = n.getFullYear(), CM = n.getMonth();
 let DATA;
 try { DATA = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch(_){}
 if (!DATA?.years) DATA = {nick:'', years:{}};
+
+// Migración: rellenar colores faltantes en meses existentes
+Object.values(DATA.years).forEach(yr => Object.values(yr).forEach(md => {
+  if (md.fixed) md.fixed.forEach((e, i) => {
+    if (!e.color && DEFAULT_FIXED[i]) e.color = DEFAULT_FIXED[i].color;
+  });
+}));
 
 let editProfile = 'casa';
 let editIncomeIdx = null, editSavingIdx = null;
@@ -1120,8 +1088,9 @@ function render() {
       const pct = t.expense > 0 ? (e.amount/t.expense*100).toFixed(1) : '0.0';
       const {label} = splitEmoji(e.name);
       const displayName = label || e.name;
+      const dotColor = e.color || '#9E9488';
       return `<div class="row" onclick="openEditFixed(${i})" style="animation-delay:${i*35}ms">
-        ${buildAvatar(e.name, '#c8902a', '200,144,42')}
+        <div class="row-dot" style="background:${dotColor}"></div>
         <div class="row-info">
           <div class="row-name">${displayName}</div>
           <div class="row-sub">${pct}% del total</div>
@@ -1132,23 +1101,7 @@ function render() {
   }
 
   // Var list
-  document.getElementById('varTotal').textContent = fmt(t.vars);
-  const vl = document.getElementById('varList');
-  if (md.vars.length === 0) {
-    vl.innerHTML = `<div style="padding:8px 0 4px;text-align:center;color:var(--t3);font-size:14px">Nada por aquí todavía</div>`;
-  } else {
-    vl.innerHTML = md.vars.map((e, i) => {
-      const p = PROFILES.find(x => x.id === e.profile) || PROFILES[0];
-      return `<div class="vrow" style="animation-delay:${i*35}ms" onclick="openEditVar(${i})">
-        <div class="vrow-bar" style="background:${p.color}"></div>
-        <div class="vrow-info">
-          <div class="vrow-name">${e.name}</div>
-          <div class="vrow-profile" style="color:${p.color}">${p.name}</div>
-        </div>
-        <div class="vrow-amt">${fmt(e.amount)}</div>
-      </div>`;
-    }).join('');
-  }
+  // Var list lives inside expense panel sheet now — no DOM elements to update here
 }
 
 function renderAmoa(t, md) {
@@ -1182,6 +1135,7 @@ function renderChips(md) {
 
   document.getElementById('chipsRow').innerHTML = PROFILES.map(p => {
     const val = vals[p.id] || 0;
+    if (val === 0) return '';
     const isCasa = p.id === 'casa';
     const pct = isCasa && t.income > 0 ? (val / t.income * 100) : null;
     return `<div class="chip"
@@ -1191,10 +1145,10 @@ function renderChips(md) {
         <span class="chip-bar" style="background:${p.color}"></span>
         <span class="chip-name" style="color:var(--t1)">${p.name}</span>
       </div>
-      <div class="chip-right" style="flex-direction:column;align-items:flex-end">
+      <div class="chip-right">
         <span class="chip-amt" style="color:${p.color}">${fmt(val)}</span>
         ${pct !== null && pct > 0
-          ? `<span class="chip-pct" style="color:${p.color};opacity:.6">${pct.toFixed(0)}% de ingresos</span>`
+          ? `<span class="chip-pct" style="color:${p.color};opacity:.6">${pct.toFixed(0)}%</span>`
           : ''
         }
       </div>
@@ -1242,6 +1196,64 @@ function openAddIncome() {
   openModal('mIncome');
   setTimeout(() => document.getElementById('iName').focus(), 250);
 }
+function openExpensePanel() {
+  const md = month(CY, CM);
+  const t  = totals(CY, CM);
+
+  _colorPickerPid = null;
+  document.getElementById('colorPicker').classList.remove('on');
+  document.getElementById('dName').style.cursor = 'default';
+  document.querySelector('.detail-hd-name-pencil').style.display = 'none';
+  document.getElementById('dNameText').textContent = 'Gastos';
+  document.getElementById('dNameText').style.color = 'var(--red)';
+  document.getElementById('dAmt').textContent = fmt(t.vars);
+  document.getElementById('dAmt').style.color  = 'var(--red)';
+
+  const body = document.getElementById('dBody');
+
+  // Agrupar por perfil
+  const groups = PROFILES.map(p => {
+    const items = md.vars.filter(e => e.profile === p.id);
+    return {p, items};
+  }).filter(g => g.items.length > 0);
+
+  if (groups.length === 0) {
+    body.innerHTML = `<div style="padding:24px;text-align:center;color:var(--t3);font-size:14px">Sin gastos este mes</div>`;
+  } else {
+    body.innerHTML = groups.map(({p, items}) => {
+      const groupTotal = items.reduce((s,e) => s+(e.amount||0), 0);
+      const rows = items.map((e, i) => {
+        const realIdx = md.vars.indexOf(e);
+        return `<div class="row" onclick="openEditVarFromPanel(${realIdx})" style="animation-delay:${i*30}ms">
+          <span class="chip-bar" style="background:${p.color};height:28px;border-radius:2px;flex-shrink:0;margin-right:14px"></span>
+          <div class="row-info">
+            <div class="row-name">${e.name}</div>
+          </div>
+          <div class="row-amt">${fmt(e.amount)}</div>
+        </div>`;
+      }).join('');
+      return `
+        <div style="margin-bottom:16px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;padding:0 4px 6px">
+            <span style="font-size:11px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;color:${p.color}">${p.name}</span>
+            <span style="font-size:13px;color:var(--t2)">${fmt(groupTotal)}</span>
+          </div>
+          <div class="card">${rows}</div>
+        </div>`;
+    }).join('');
+  }
+
+  document.getElementById('dAddBtn').textContent = '+ Agregar gasto';
+  document.getElementById('dAddBtn').onclick = () => { closeModal('mDetail'); openAddVar('casa'); };
+  document.getElementById('dAddBtn').style.display = '';
+  openModal('mDetail');
+}
+
+function openEditVarFromPanel(i) {
+  closeModal('mDetail');
+  openEditVar(i);
+}
+
 function openIncomePanel() {
   const md = month(CY, CM);
   if (md.incomes.length === 0) { openAddIncome(); return; }
@@ -1355,31 +1367,82 @@ function openAddFixed() {
   document.getElementById('fName').value = '';
   document.getElementById('fAmt').value  = '';
   document.getElementById('fDel').style.display = 'none';
+  buildFixedColorDots('#c8902a');
   openModal('mFixed');
   setTimeout(() => document.getElementById('fName').focus(), 250);
+}
+let _fSelectedColor = '#c8902a';
+
+function buildFixedColorDots(current) {
+  _fSelectedColor = current || '#c8902a';
+  const colors = COLOR_PALETTE.filter(c =>
+    !['#EDE9E2','#C8BFB0','#B8B2AA','#1a2640'].includes(c.hex)
+  );
+  document.getElementById('fColorDots').innerHTML = colors.map(c => {
+    const sel = c.hex.toLowerCase() === _fSelectedColor.toLowerCase();
+    return `<div onclick="selectFixedColor('${c.hex}')" style="
+      display:flex;align-items:center;gap:12px;
+      padding:10px 14px;border-radius:12px;cursor:pointer;
+      background:${sel ? 'rgba(0,0,0,.06)' : 'transparent'};
+      transition:background .15s;
+    ">
+      <div style="
+        width:22px;height:22px;border-radius:50%;background:${c.hex};
+        flex-shrink:0;
+        box-shadow:${sel ? '0 0 0 2.5px var(--bg), 0 0 0 4px ' + c.hex : 'none'};
+        transition:box-shadow .15s;
+      "></div>
+      <span style="
+        font-size:15px;font-weight:${sel ? '600' : '400'};
+        color:${sel ? 'var(--t1)' : 'var(--t2)'};
+        transition:color .15s, font-weight .15s;
+      ">${c.name}</span>
+    </div>`;
+  }).join('');
+}
+
+function selectFixedColor(hex) {
+  _fSelectedColor = hex;
+  buildFixedColorDots(hex);
+}
+
+function openNewFixed() {
+  editFixedIdx = null;
+  document.getElementById('mFixedTtl').textContent = 'Nuevo gasto fijo';
+  document.getElementById('fName').value = '';
+  document.getElementById('fAmt').value  = '';
+  document.getElementById('fDel').style.display = 'none';
+  buildFixedColorDots('#c8902a');
+  openModal('mFixed');
 }
 function openEditFixed(i) {
   editFixedIdx = i;
   const e = month(CY,CM).fixed[i];
   document.getElementById('mFixedTtl').textContent = 'Editar gasto fijo';
-  document.getElementById('fName').value = e.name;
+  document.getElementById('fName').value = splitEmoji(e.name).label || e.name;
   document.getElementById('fAmt').value  = e.amount ? parseInt(e.amount).toLocaleString('es-CL') : '';
   document.getElementById('fDel').style.display = 'block';
+  buildFixedColorDots(e.color || '#c8902a');
   openModal('mFixed');
 }
 function saveFixed() {
   const name = document.getElementById('fName').value.trim();
   if (!name) { document.getElementById('fName').focus(); return; }
   const amount = parseAmt(document.getElementById('fAmt').value);
+  const color  = _fSelectedColor;
   const md = month(CY, CM);
   if (editFixedIdx !== null) {
-    // Sync name across all months
+    // Color sincroniza en todos los meses
     Object.values(DATA.years).forEach(yr => Object.values(yr).forEach(m => {
-      if (m.fixed?.[editFixedIdx]) m.fixed[editFixedIdx].name = name;
+      if (m.fixed?.[editFixedIdx]) {
+        m.fixed[editFixedIdx].color = color;
+      }
     }));
+    // Nombre y monto solo para este mes
+    md.fixed[editFixedIdx].name   = name;
     md.fixed[editFixedIdx].amount = amount;
   } else {
-    md.fixed.push({name, amount});
+    md.fixed.push({name, amount, color});
   }
   persist(); render(); closeModal('mFixed');
   showToast(editFixedIdx !== null ? 'Gasto actualizado' : 'Gasto añadido ✓');
@@ -1497,7 +1560,9 @@ function toggleTheme() {
 
   // Forzar transición en todos los elementos con color inline
   const TRANS = 'color 220ms ease-out, background-color 220ms ease-out, background 220ms ease-out';
-  document.querySelectorAll('[style*="color"], [style*="background"]').forEach(el => {
+  const inlineColored = document.querySelectorAll('[style*="color"], [style*="background"]');
+  inlineColored.forEach(el => {
+    el.dataset.themeTransition = '1';
     el.style.transition = TRANS;
   });
 
@@ -1510,9 +1575,9 @@ function toggleTheme() {
 
   setTimeout(() => {
     html.classList.remove('theme-transitioning');
-    // Limpiar transiciones inline para no interferir con animaciones normales
-    document.querySelectorAll('[style*="transition"]').forEach(el => {
+    document.querySelectorAll('[data-theme-transition="1"]').forEach(el => {
       el.style.transition = '';
+      delete el.dataset.themeTransition;
     });
   }, 280);
 }
@@ -1757,14 +1822,29 @@ async function obSend() {
   DATA.nick = val.split(' ')[0];
   persist();
   await obBubble(`Bienvenid@, <b>${DATA.nick}</b> 👋`, 100);
-  await obBubble('Tus datos viven solo aquí, en tu dispositivo.', 200);
+  await obBubble('¿Quieres importar tus gastos o empezamos desde cero?', 400);
   setTimeout(() => {
-    const cta = document.getElementById('obCta');
-    cta.style.display = 'block';
-    requestAnimationFrame(() => requestAnimationFrame(() => cta.classList.add('in')));
+    const fresh  = document.getElementById('obCtaFresh');
+    const imp    = document.getElementById('obCtaImport');
+    fresh.style.display = 'block';
+    imp.style.display   = 'block';
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      fresh.classList.add('in');
+      imp.classList.add('in');
+    }));
   }, 700);
 }
-function obFinish() {
+function obFinish(importing = false) {
+  if (!importing) {
+    // Desde cero — borrar historial, conservar configuración, recargar para limpiar memoria
+    const nick = DATA.nick;
+    localStorage.removeItem(KEY);
+    DATA = { nick, years: {} };
+    persist();
+    localStorage.setItem('amoa-ob', '1'); // no volver a mostrar onboarding
+    location.reload();
+    return;
+  }
   const ob = document.getElementById('ob');
   ob.style.transition = 'opacity .3s, transform .3s';
   ob.style.opacity = '0'; ob.style.transform = 'scale(1.03)';
@@ -1776,6 +1856,13 @@ function obFinish() {
     render();
   }, 300);
   localStorage.setItem('amoa-ob', '1');
+}
+function obImport() {
+  // Lanza el selector de archivo; al terminar handleImport llama obFinish(true)
+  const fi = document.getElementById('importFile');
+  fi.value = '';
+  fi._fromOb = true;
+  fi.click();
 }
 async function startOb() {
   setTimeout(() => document.getElementById('obLogo').classList.add('in'), 120);
@@ -1922,19 +2009,28 @@ function importData() {
 function handleImport(e) {
   const file = e.target.files[0];
   if (!file) return;
+  const fromOb = e.target._fromOb;
+  e.target._fromOb = false;
   const reader = new FileReader();
   reader.onload = ev => {
     try {
       const payload = JSON.parse(ev.target.result);
       if (!payload.data) throw new Error('Archivo inválido');
-      // Restore
       localStorage.setItem(KEY, payload.data);
       if (payload.theme) localStorage.setItem('amoa-theme', payload.theme);
-      if (payload.ob)    localStorage.setItem('amoa-ob', payload.ob);
-      obBubble('✅ Datos restaurados', 0);
-      setTimeout(() => location.reload(), 1200);
+      if (payload.colors) localStorage.setItem('amoa-colors', payload.colors);
+      if (fromOb) {
+        // Recarga DATA desde localStorage y cierra onboarding
+        try { DATA = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch(_){}
+        if (!DATA?.years) DATA = {nick:'', years:{}};
+        showToast('Datos restaurados ✓');
+        obFinish(true);
+      } else {
+        showToast('Datos restaurados ✓');
+        setTimeout(() => location.reload(), 800);
+      }
     } catch(_) {
-      obBubble('❌ Archivo no válido', 0);
+      showToast('Archivo no válido ✗');
     }
   };
   reader.readAsText(file);
